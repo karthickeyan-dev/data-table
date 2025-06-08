@@ -18,6 +18,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+
 import {
   type Parser,
   type UseQueryStateOptions,
@@ -49,54 +50,33 @@ interface UseDataTableProps<TData>
       | "manualSorting"
     >,
     Required<Pick<TableOptions<TData>, "pageCount">> {
-  initialState?: Omit<Partial<TableState>, "sorting"> & {
-    sorting?: ExtendedColumnSort<TData>[];
-  };
-  history?: "push" | "replace";
-  debounceMs?: number;
-  throttleMs?: number;
-  clearOnDefault?: boolean;
-  scroll?: boolean;
-  shallow?: boolean;
-  startTransition?: React.TransitionStartFunction;
+  initialState?: Partial<TableState>
 }
 
-export function useDataTable<TData>(props: UseDataTableProps<TData>) {  const {
+export function useDataTable<TData>(props: UseDataTableProps<TData>) {
+  const {
     columns,
     pageCount = -1,
     initialState,
-    history = "replace",
-    debounceMs = DEBOUNCE_MS,
-    throttleMs = THROTTLE_MS,
-    clearOnDefault = false,
-    scroll = false,
-    shallow = true,
-    startTransition,
     ...tableProps
   } = props;
 
+  // Define query state options directly in the useMemo
   const queryStateOptions = useMemo<
     Omit<UseQueryStateOptions<string>, "parse">
   >(
     () => ({
-      history,
-      scroll,
-      shallow,
-      throttleMs,
-      debounceMs,
-      clearOnDefault,
-      startTransition,
+      history: "replace",
+      scroll: false,
+      shallow: true,
+      throttleMs: THROTTLE_MS,
+      debounceMs: DEBOUNCE_MS,
+      clearOnDefault: false,
+      startTransition: undefined,
     }),
-    [
-      history,
-      scroll,
-      shallow,
-      throttleMs,
-      debounceMs,
-      clearOnDefault,
-      startTransition,
-    ],
+    [],
   );
+
 
   // Clients side (sorting, selection, visibility)
 
@@ -173,7 +153,7 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {  const {
       void setPage(1);
       void setFilterValues(values);
     },
-    debounceMs,
+    DEBOUNCE_MS,
   );
 
   const initialColumnFilters: ColumnFiltersState = useMemo(() => {
@@ -257,7 +237,8 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {  const {
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),    getFacetedRowModel: getFacetedRowModel(),
+    getSortedRowModel: getSortedRowModel(),    
+    getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getFacetedMinMaxValues: getFacetedMinMaxValues(),
     manualPagination: true,
@@ -265,5 +246,10 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {  const {
     manualSorting: false,
   });
 
-  return { table, shallow, debounceMs, throttleMs };
+  return { 
+    table, 
+    shallow: true, 
+    debounceMs: DEBOUNCE_MS, 
+    throttleMs: THROTTLE_MS 
+  };
 }
