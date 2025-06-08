@@ -1,9 +1,15 @@
-"use client";
+'use client';
 
-import type { Table } from "@tanstack/react-table";
-import { Check, ChevronsUpDown, Settings2 } from "lucide-react";
+import type { Table } from '@tanstack/react-table';
+import {
+  Check,
+  CheckIcon,
+  ChevronsUpDown,
+  ChevronsUpDownIcon,
+  Settings2Icon,
+} from 'lucide-react';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   Command,
   CommandEmpty,
@@ -11,14 +17,13 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command";
+} from '@/components/ui/command';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
-import * as React from "react";
+} from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 interface DataTableViewOptionsProps<TData> {
   table: Table<TData>;
@@ -27,16 +32,12 @@ interface DataTableViewOptionsProps<TData> {
 export function DataTableViewOptions<TData>({
   table,
 }: DataTableViewOptionsProps<TData>) {
-  const columns = React.useMemo(
-    () =>
-      table
-        .getAllColumns()
-        .filter(
-          (column) =>
-            typeof column.accessorFn !== "undefined" && column.getCanHide(),
-        ),
-    [table],
-  );
+  // Get all columns that have an accessor function and can be hidden
+  const columns = table
+    .getAllColumns()
+    .filter(
+      column => typeof column.accessorFn !== 'undefined' && column.getCanHide()
+    );
 
   return (
     <Popover>
@@ -48,9 +49,9 @@ export function DataTableViewOptions<TData>({
           size="sm"
           className="ml-auto hidden h-8 lg:flex"
         >
-          <Settings2 />
+          <Settings2Icon />
           View
-          <ChevronsUpDown className="ml-auto opacity-50" />
+          <ChevronsUpDownIcon className="ml-auto opacity-60" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-44 p-0">
@@ -59,7 +60,7 @@ export function DataTableViewOptions<TData>({
           <CommandList>
             <CommandEmpty>No columns found.</CommandEmpty>
             <CommandGroup>
-              {columns.map((column) => (
+              {columns.map(column => (
                 <CommandItem
                   key={column.id}
                   onSelect={() =>
@@ -69,10 +70,10 @@ export function DataTableViewOptions<TData>({
                   <span className="truncate">
                     {column.columnDef.meta?.label ?? column.id}
                   </span>
-                  <Check
+                  <CheckIcon
                     className={cn(
-                      "ml-auto size-4 shrink-0",
-                      column.getIsVisible() ? "opacity-100" : "opacity-0",
+                      'ml-auto size-4 shrink-0',
+                      column.getIsVisible() ? 'opacity-100' : 'opacity-0'
                     )}
                   />
                 </CommandItem>

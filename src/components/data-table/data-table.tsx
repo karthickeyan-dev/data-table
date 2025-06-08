@@ -15,12 +15,10 @@ import { cn } from "@/lib/utils";
 
 interface DataTableProps<TData> extends React.ComponentProps<"div"> {
   table: TanstackTable<TData>;
-  actionBar?: React.ReactNode;
 }
 
 export function DataTable<TData>({
   table,
-  actionBar,
   children,
   className,
   ...props
@@ -92,9 +90,6 @@ export function DataTable<TData>({
       </div>
       <div className="flex flex-col gap-2.5">
         <DataTablePagination table={table} />
-        {actionBar &&
-          table.getFilteredSelectedRowModel().rows.length > 0 &&
-          actionBar}
       </div>
     </div>
   );
