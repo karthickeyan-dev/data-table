@@ -34,7 +34,6 @@ import { useCallback, useMemo, useState } from "react";
 
 const PAGE_KEY = "page";
 const PER_PAGE_KEY = "perPage";
-const SORT_KEY = "sort";
 const ARRAY_SEPARATOR = ",";
 const DEBOUNCE_MS = 300;
 const THROTTLE_MS = 50;
@@ -57,14 +56,12 @@ interface UseDataTableProps<TData>
   debounceMs?: number;
   throttleMs?: number;
   clearOnDefault?: boolean;
-  enableAdvancedFilter?: boolean;
   scroll?: boolean;
   shallow?: boolean;
   startTransition?: React.TransitionStartFunction;
 }
 
-export function useDataTable<TData>(props: UseDataTableProps<TData>) {
-  const {
+export function useDataTable<TData>(props: UseDataTableProps<TData>) {  const {
     columns,
     pageCount = -1,
     initialState,
@@ -72,7 +69,6 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
     debounceMs = DEBOUNCE_MS,
     throttleMs = THROTTLE_MS,
     clearOnDefault = false,
-    enableAdvancedFilter = false,
     scroll = false,
     shallow = true,
     startTransition,
@@ -148,23 +144,12 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
     [pagination, setPage, setPerPage],
   );
 
-  const columnIds = useMemo(() => {
-    return new Set(
-      columns.map((column) => column.id).filter(Boolean) as string[],
-    );
-  }, [columns]);
-
- 
-
-
   const filterableColumns = useMemo(() => {
-    if (enableAdvancedFilter) return [];
 
     return columns.filter((column) => column.enableColumnFilter);
-  }, [columns, enableAdvancedFilter]);
+  }, [columns]);
 
   const filterParsers = useMemo(() => {
-    if (enableAdvancedFilter) return {};
 
     return filterableColumns.reduce<
       Record<string, Parser<string> | Parser<string[]>>
@@ -179,7 +164,7 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
       }
       return acc;
     }, {});
-  }, [filterableColumns, queryStateOptions, enableAdvancedFilter]);
+  }, [filterableColumns, queryStateOptions]);
 
   const [filterValues, setFilterValues] = useQueryStates(filterParsers);
 
@@ -192,7 +177,6 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
   );
 
   const initialColumnFilters: ColumnFiltersState = useMemo(() => {
-    if (enableAdvancedFilter) return [];
 
     return Object.entries(filterValues).reduce<ColumnFiltersState>(
       (filters, [key, value]) => {
@@ -212,14 +196,13 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
       },
       [],
     );
-  }, [filterValues, enableAdvancedFilter]);
+  }, [filterValues]);
 
   const [columnFilters, setColumnFilters] =
     useState<ColumnFiltersState>(initialColumnFilters);
 
   const onColumnFiltersChange = useCallback(
     (updaterOrValue: Updater<ColumnFiltersState>) => {
-      if (enableAdvancedFilter) return;
 
       setColumnFilters((prev) => {
         const next =
@@ -246,7 +229,7 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
         return next;
       });
     },
-    [debouncedSetFilterValues, filterableColumns, enableAdvancedFilter],
+    [debouncedSetFilterValues, filterableColumns],
   );
 
   const table = useReactTable({
@@ -274,8 +257,7 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
+    getSortedRowModel: getSortedRowModel(),    getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getFacetedMinMaxValues: getFacetedMinMaxValues(),
     manualPagination: true,
