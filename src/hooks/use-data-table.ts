@@ -6,7 +6,6 @@ import {
   type RowSelectionState,
   type SortingState,
   type TableOptions,
-  type TableState,
   type Updater,
   type VisibilityState,
   getCoreRowModel,
@@ -16,7 +15,7 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  useReactTable,
+  useReactTable
 } from "@tanstack/react-table";
 
 import {
@@ -30,7 +29,6 @@ import {
 } from "nuqs";
 
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
-import type { ExtendedColumnSort } from "@/types/data-table";
 import { useCallback, useMemo, useState } from "react";
 
 const PAGE_KEY = "page";
@@ -50,7 +48,6 @@ interface UseDataTableProps<TData>
       | "manualSorting"
     >,
     Required<Pick<TableOptions<TData>, "pageCount">> {
-  initialState?: Partial<TableState>
 }
 
 export function useDataTable<TData>(props: UseDataTableProps<TData>) {
@@ -247,9 +244,6 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
   });
 
   return { 
-    table, 
-    shallow: true, 
-    debounceMs: DEBOUNCE_MS, 
-    throttleMs: THROTTLE_MS 
+    table
   };
 }

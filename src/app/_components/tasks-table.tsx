@@ -49,12 +49,13 @@ export function TasksTable({ promises }: TasksTableProps) {
     setRowAction,
   });
 
-  const { table, shallow, debounceMs, throttleMs } = useDataTable({
+  const { table } = useDataTable({
     data,
     columns,
     pageCount,
     initialState: {
       columnPinning: { right: ['actions'] },
+      
     },
     getRowId: row => row.id,
   });
