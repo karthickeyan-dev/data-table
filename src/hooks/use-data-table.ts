@@ -190,14 +190,22 @@ export function useDataTable<TData, TValue>({
   }
 
   // Sanitize filter values to remove empty or null values
-  const sanitizedFilterValues = Object.fromEntries(
-    Object.entries(filterValues).filter(([, value]) => {
-      if (value === null) return false;
-      if (typeof value === 'string') return value.trim() !== '';
-      if (Array.isArray(value)) return value.length > 0;
-      return true;
-    })
-  );
+  const NormalizedFilterValues = Object.keys(filterValues)
+    .sort() // Normalize key order
+    .reduce<FilterValues>((acc, key) => {
+      const value = filterValues[key];
+
+      // Sanitize - skip empty/null values
+      if (value === null) return acc;
+      if (typeof value === 'string' && value.trim() === '') return acc;
+      if (Array.isArray(value) && value.length === 0) return acc;
+
+      // Normalize - sort arrays
+      if (typeof value !== 'undefined') {
+        acc[key] = Array.isArray(value) ? [...value].sort() : value;
+      }
+      return acc;
+    }, {});
 
   // Create table instance
   const table = useReactTable({
@@ -226,5 +234,5 @@ export function useDataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
   });
 
-  return { table, filterValues: sanitizedFilterValues };
+  return { table, filterValues: NormalizedFilterValues, page, perPage };
 }
