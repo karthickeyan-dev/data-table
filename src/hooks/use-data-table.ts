@@ -33,6 +33,7 @@ const PER_PAGE_KEY = 'perPage';
 const ARRAY_SEPARATOR = ',';
 
 // Type for filter parsers
+type FilterValues = Record<string, string | string[]>;
 type FilterParsers = Record<string, Parser<string> | Parser<string[]>>;
 
 // Explicit props for useDataTable
@@ -96,8 +97,8 @@ export function useDataTable<TData, TValue>({
         ? updaterOrValue(pagination)
         : updaterOrValue;
     // Update URL query parameters for page and perPage (convert to 1-indexed)
-    void setPage(next.pageIndex + 1);
-    void setPerPage(next.pageSize);
+    setPage(next.pageIndex + 1);
+    setPerPage(next.pageSize);
   }
 
   // Get filterable columns (enableColumnFilter: true)
@@ -119,9 +120,9 @@ export function useDataTable<TData, TValue>({
   const [filterValues, setFilterValues] = useQueryStates(parsers);
 
   // Update filters and reset page to 1 (for url)
-  function updateUrlFilters(value: typeof filterValues) {
-    void setPage(1);
-    void setFilterValues(value);
+  function updateUrlFilters(newFilterValues: FilterValues) {
+    setPage(1);
+    setFilterValues(newFilterValues);
   }
 
   // Client state for column filters (tanstack)
@@ -157,27 +158,29 @@ export function useDataTable<TData, TValue>({
           : updaterOrValue;
 
       // Build object to sync with URL filters
-      const updatedUrlFilters: Record<string, string | string[] | null> = {};
+      const newFilterValues: FilterValues = {};
 
       // Add or update filters in URL object
       nextFilters.forEach(filter => {
-        updatedUrlFilters[filter.id] = filter.value as string | string[] | null;
-      });
-
-      // Clear filters that were removed
-      prevFilters.forEach(filter => {
-        const stillExists = nextFilters.some(f => f.id === filter.id);
-        if (!stillExists) {
-          updatedUrlFilters[filter.id] = null;
-        }
+        newFilterValues[filter.id] = filter.value as string | string[];
       });
 
       // Update URL filters (resets page to 1)
-      updateUrlFilters(updatedUrlFilters);
+      updateUrlFilters(newFilterValues);
 
       return nextFilters;
     });
   }
+
+  // Sanitize filter values to remove empty or null values
+  const sanitizedFilterValues = Object.fromEntries(
+    Object.entries(filterValues).filter(([_, val]) => {
+      if (val === null) return false;
+      if (typeof val === 'string') return val.trim() !== '';
+      if (Array.isArray(val)) return val.length > 0;
+      return true;
+    })
+  );
 
   // Create table instance
   const table = useReactTable({
@@ -206,5 +209,5 @@ export function useDataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
   });
 
-  return { table, filterValues };
+  return { table, filterValues: sanitizedFilterValues };
 }
