@@ -33,7 +33,7 @@ const PER_PAGE_KEY = 'perPage';
 const ARRAY_SEPARATOR = ',';
 
 // Type for filter parsers
-type FilterValues = Record<string, string | string[]>;
+type FilterValues = Record<string, string | string[] | null>;
 type FilterParsers = Record<string, Parser<string> | Parser<string[]>>;
 
 // Explicit props for useDataTable
@@ -132,13 +132,15 @@ export function useDataTable<TData, TValue>({
   useEffect(() => {
     const newFilters: ColumnFiltersState = Object.entries(filterValues).flatMap(
       ([id, val]) => {
-        if (val == null) return [];
+        if (!val || (Array.isArray(val) && val.length === 0)) return [];
+
         const values = Array.isArray(val)
-          ? val
-          : typeof val === 'string' && /[^a-zA-Z0-9]/.test(val)
-          ? val.split(/[^a-zA-Z0-9]+/).filter(Boolean)
+          ? val.filter(Boolean)
+          : val.trim() === ''
+          ? []
           : [val];
-        return [{ id, value: values }];
+
+        return values.length > 0 ? [{ id, value: values }] : [];
       }
     );
     setColumnFilters(newFilters);
@@ -151,33 +153,48 @@ export function useDataTable<TData, TValue>({
       | ((prev: ColumnFiltersState) => ColumnFiltersState)
   ) {
     setColumnFilters(prevFilters => {
-      // Resolve next filters (handle both value and updater function)
-      const nextFilters =
+      const nextColumnFilters =
         typeof updaterOrValue === 'function'
           ? updaterOrValue(prevFilters)
           : updaterOrValue;
 
-      // Build object to sync with URL filters
-      const newFilterValues: FilterValues = {};
+      const nextFilterValues: FilterValues = {};
 
-      // Add or update filters in URL object
-      nextFilters.forEach(filter => {
-        newFilterValues[filter.id] = filter.value as string | string[];
-      });
+      // Add or update non-empty filters
+      for (const { id, value } of nextColumnFilters) {
+        const isValid =
+          typeof value === 'string'
+            ? value.trim() !== ''
+            : Array.isArray(value)
+            ? value.filter(Boolean).length > 0
+            : value != null;
 
-      // Update URL filters (resets page to 1)
-      updateUrlFilters(newFilterValues);
+        if (isValid) {
+          nextFilterValues[id] = value as string | string[];
+        }
+      }
 
-      return nextFilters;
+      // Remove filters that existed before but were cleared
+      for (const { id } of prevFilters) {
+        const stillExists = nextColumnFilters.some(f => f.id === id);
+        if (!stillExists) {
+          nextFilterValues[id] = null; // Explicitly remove from URL
+        }
+      }
+
+      // Sync with URL (reset to page 1)
+      updateUrlFilters(nextFilterValues);
+
+      return nextColumnFilters;
     });
   }
 
   // Sanitize filter values to remove empty or null values
   const sanitizedFilterValues = Object.fromEntries(
-    Object.entries(filterValues).filter(([_, val]) => {
-      if (val === null) return false;
-      if (typeof val === 'string') return val.trim() !== '';
-      if (Array.isArray(val)) return val.length > 0;
+    Object.entries(filterValues).filter(([, value]) => {
+      if (value === null) return false;
+      if (typeof value === 'string') return value.trim() !== '';
+      if (Array.isArray(value)) return value.length > 0;
       return true;
     })
   );
