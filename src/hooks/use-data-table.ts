@@ -41,14 +41,7 @@ interface UseDataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   pageCount: number;
   initialState?: Partial<
-    Pick<
-      TableState,
-      | 'sorting'
-      | 'rowSelection'
-      | 'columnVisibility'
-      | 'pagination'
-      | 'columnPinning'
-    >
+    Pick<TableState, 'columnVisibility' | 'columnPinning'>
   >;
 }
 
@@ -67,12 +60,9 @@ export function useDataTable<TData, TValue>({
   };
 
   // Client-only state (tanstack)
-  const [sorting, setSorting] = useState<SortingState>(
-    initialState.sorting ?? []
-  );
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>(
-    initialState.rowSelection ?? {}
-  );
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
     initialState.columnVisibility ?? {}
   );
@@ -80,15 +70,11 @@ export function useDataTable<TData, TValue>({
   // URL-synced pagination state (nuqs)
   const [page, setPage] = useQueryState(
     PAGE_KEY,
-    parseAsInteger
-      .withOptions(queryStateOptions)
-      .withDefault(initialState.pagination?.pageIndex ?? 1)
+    parseAsInteger.withOptions(queryStateOptions).withDefault(1)
   );
   const [perPage, setPerPage] = useQueryState(
     PER_PAGE_KEY,
-    parseAsInteger
-      .withOptions(queryStateOptions)
-      .withDefault(initialState.pagination?.pageSize ?? 10)
+    parseAsInteger.withOptions(queryStateOptions).withDefault(10)
   );
 
   // Convert page and perPage to tanstack's PaginationState format
