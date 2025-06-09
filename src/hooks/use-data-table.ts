@@ -1,216 +1,224 @@
-"use client";
+'use client';
 
 import {
-  type ColumnFiltersState,
-  type PaginationState,
-  type RowSelectionState,
-  type SortingState,
-  type TableOptions,
-  type Updater,
-  type VisibilityState,
+  ColumnFiltersState,
+  PaginationState,
+  RowSelectionState,
+  SortingState,
+  VisibilityState,
   getCoreRowModel,
-  getFacetedMinMaxValues,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  useReactTable
-} from "@tanstack/react-table";
+  useReactTable,
+  ColumnDef,
+  TableState,
+} from '@tanstack/react-table';
 
 import {
-  type Parser,
+  Parser,
+  UseQueryStateOptions,
   parseAsArrayOf,
   parseAsInteger,
   parseAsString,
   useQueryState,
   useQueryStates,
-} from "nuqs";
+} from 'nuqs';
 
-import { useState } from "react";
+import { useEffect, useState } from 'react';
 
-const PAGE_KEY = "page";
-const PER_PAGE_KEY = "perPage";
-const ARRAY_SEPARATOR = ",";
+// URL query parameter keys
+const PAGE_KEY = 'page';
+const PER_PAGE_KEY = 'perPage';
+const ARRAY_SEPARATOR = ',';
 
-interface UseDataTableProps<TData>
-  extends Omit<
-      TableOptions<TData>,
-      | "state"
-      | "pageCount"
-      | "getCoreRowModel"
-      | "manualFiltering"
-      | "manualPagination"
-      | "manualSorting"
-    >,
-    Required<Pick<TableOptions<TData>, "pageCount">> {
+// Type for filter parsers
+type FilterParsers = Record<string, Parser<string> | Parser<string[]>>;
+
+// Explicit props for useDataTable
+interface UseDataTableProps<TData, TValue> {
+  data: TData[];
+  columns: ColumnDef<TData, TValue>[];
+  pageCount: number;
+  initialState?: Partial<
+    Pick<
+      TableState,
+      | 'sorting'
+      | 'rowSelection'
+      | 'columnVisibility'
+      | 'pagination'
+      | 'columnPinning'
+    >
+  >;
 }
 
-export function useDataTable<TData>(props: UseDataTableProps<TData>) {
-  const {
-    columns,
-    pageCount = -1,
-    initialState,
-    ...tableProps
-  } = props;
-
-  // Define query state options directly
-  const queryStateOptions = {
-    history: "replace" as const,
+export function useDataTable<TData, TValue>({
+  data,
+  columns,
+  pageCount,
+  initialState = {},
+}: UseDataTableProps<TData, TValue>) {
+  // Query state options for URL synchronization
+  const queryStateOptions: Omit<UseQueryStateOptions<string>, 'parse'> = {
+    history: 'replace',
     scroll: false,
     shallow: false,
     clearOnDefault: true,
   };
 
-  // Client side state (sorting, selection, visibility)
+  // Client-only state (tanstack)
   const [sorting, setSorting] = useState<SortingState>(
-    initialState?.sorting ?? []
+    initialState.sorting ?? []
   );
-
   const [rowSelection, setRowSelection] = useState<RowSelectionState>(
-    initialState?.rowSelection ?? {}
+    initialState.rowSelection ?? {}
   );
-
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-    initialState?.columnVisibility ?? {}
+    initialState.columnVisibility ?? {}
   );
 
-  // Server side state (pagination, filtering)
+  // URL-synced pagination state (nuqs)
   const [page, setPage] = useQueryState(
     PAGE_KEY,
-    parseAsInteger.withOptions(queryStateOptions).withDefault(1)
+    parseAsInteger
+      .withOptions(queryStateOptions)
+      .withDefault(initialState.pagination?.pageIndex ?? 1)
   );
-
   const [perPage, setPerPage] = useQueryState(
     PER_PAGE_KEY,
     parseAsInteger
       .withOptions(queryStateOptions)
-      .withDefault(initialState?.pagination?.pageSize ?? 10)
+      .withDefault(initialState.pagination?.pageSize ?? 10)
   );
 
+  // Convert page and perPage to tanstack's PaginationState format
+  // Note: page is 1-indexed, while PaginationState.pageIndex is 0-indexed
   const pagination: PaginationState = {
-    pageIndex: page - 1, // zero-based index -> one-based index
+    pageIndex: page - 1,
     pageSize: perPage,
   };
 
-  const onPaginationChange = (updaterOrValue: Updater<PaginationState>) => {
-    if (typeof updaterOrValue === "function") {
-      const newPagination = updaterOrValue(pagination);
-      void setPage(newPagination.pageIndex + 1);
-      void setPerPage(newPagination.pageSize);
-    } else {
-      void setPage(updaterOrValue.pageIndex + 1);
-      void setPerPage(updaterOrValue.pageSize);
-    }
-  };
+  // Handle pagination change
+  function onPaginationChange(
+    updaterOrValue:
+      | PaginationState
+      | ((old: PaginationState) => PaginationState)
+  ) {
+    // Calculate next pagination state from tanstack's PaginationState
+    const next =
+      typeof updaterOrValue === 'function'
+        ? updaterOrValue(pagination)
+        : updaterOrValue;
+    // Update URL query parameters for page and perPage (convert to 1-indexed)
+    void setPage(next.pageIndex + 1);
+    void setPerPage(next.pageSize);
+  }
 
-  const filterableColumns = columns.filter((column) => column.enableColumnFilter);
-
-  const filterParsers = filterableColumns.reduce<
-    Record<string, Parser<string> | Parser<string[]>>
-  >((acc, column) => {
-    if (column.meta?.options) {
-      acc[column.id ?? ""] = parseAsArrayOf(
-        parseAsString,
-        ARRAY_SEPARATOR
-      ).withOptions(queryStateOptions);
-    } else {
-      acc[column.id ?? ""] = parseAsString.withOptions(queryStateOptions);
-    }
+  // Get filterable columns (enableColumnFilter: true)
+  const filterable = columns.filter(col => col.enableColumnFilter);
+  // Create parsers for filterable columns
+  const parsers = filterable.reduce<FilterParsers>((acc, col) => {
+    const key = col.id as string;
+    acc[key] = col.meta?.options
+      ? // Parse ar array of strings if meta.options is defined
+        parseAsArrayOf(parseAsString, ARRAY_SEPARATOR).withOptions(
+          queryStateOptions
+        )
+      : // Else parse as string
+        parseAsString.withOptions(queryStateOptions);
     return acc;
   }, {});
 
-  const [filterValues, setFilterValues] = useQueryStates(filterParsers);
+  // URL-synced filter values (nuqs)
+  const [filterValues, setFilterValues] = useQueryStates(parsers);
 
-  const setFilterValuesWithPageReset = (values: typeof filterValues) => {
+  // Update filters and reset page to 1 (for url)
+  function updateUrlFilters(value: typeof filterValues) {
     void setPage(1);
-    void setFilterValues(values);
-  };
+    void setFilterValues(value);
+  }
 
-  const initialColumnFilters: ColumnFiltersState = Object.entries(
-    filterValues
-  ).reduce<ColumnFiltersState>((filters, [key, value]) => {
-    if (value !== null) {
-      const processedValue = Array.isArray(value)
-        ? value
-        : typeof value === "string" && /[^a-zA-Z0-9]/.test(value)
-          ? value.split(/[^a-zA-Z0-9]+/).filter(Boolean)
-          : [value];
+  // Client state for column filters (tanstack)
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
-      filters.push({
-        id: key,
-        value: processedValue,
-      });
-    }
-    return filters;
-  }, []);
+  // Sync tanstack column filters with URL filter values
+  useEffect(() => {
+    const newFilters: ColumnFiltersState = Object.entries(filterValues).flatMap(
+      ([id, val]) => {
+        if (val == null) return [];
+        const values = Array.isArray(val)
+          ? val
+          : typeof val === 'string' && /[^a-zA-Z0-9]/.test(val)
+          ? val.split(/[^a-zA-Z0-9]+/).filter(Boolean)
+          : [val];
+        return [{ id, value: values }];
+      }
+    );
+    setColumnFilters(newFilters);
+  }, [filterValues]);
 
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
-    initialColumnFilters
-  );
-
-  const onColumnFiltersChange = (updaterOrValue: Updater<ColumnFiltersState>) => {
-    setColumnFilters((prev) => {
-      const next =
-        typeof updaterOrValue === "function"
-          ? updaterOrValue(prev)
+  // Handle column filter changes (tanstack & URL sync)
+  function onColumnFiltersChange(
+    updaterOrValue:
+      | ColumnFiltersState
+      | ((prev: ColumnFiltersState) => ColumnFiltersState)
+  ) {
+    setColumnFilters(prevFilters => {
+      // Resolve next filters (handle both value and updater function)
+      const nextFilters =
+        typeof updaterOrValue === 'function'
+          ? updaterOrValue(prevFilters)
           : updaterOrValue;
 
-      const filterUpdates = next.reduce<
-        Record<string, string | string[] | null>
-      >((acc, filter) => {
-        if (filterableColumns.find((column) => column.id === filter.id)) {
-          acc[filter.id] = filter.value as string | string[];
-        }
-        return acc;
-      }, {});
+      // Build object to sync with URL filters
+      const updatedUrlFilters: Record<string, string | string[] | null> = {};
 
-      for (const prevFilter of prev) {
-        if (!next.some((filter) => filter.id === prevFilter.id)) {
-          filterUpdates[prevFilter.id] = null;
-        }
-      }
+      // Add or update filters in URL object
+      nextFilters.forEach(filter => {
+        updatedUrlFilters[filter.id] = filter.value as string | string[] | null;
+      });
 
-      setFilterValuesWithPageReset(filterUpdates);
-      return next;
+      // Clear filters that were removed
+      prevFilters.forEach(filter => {
+        const stillExists = nextFilters.some(f => f.id === filter.id);
+        if (!stillExists) {
+          updatedUrlFilters[filter.id] = null;
+        }
+      });
+
+      // Update URL filters (resets page to 1)
+      updateUrlFilters(updatedUrlFilters);
+
+      return nextFilters;
     });
-  };
+  }
 
+  // Create table instance
   const table = useReactTable({
-    ...tableProps,
+    data,
     columns,
-    initialState,
     pageCount,
     state: {
       pagination,
       sorting,
-      columnVisibility,
       rowSelection,
+      columnVisibility,
       columnFilters,
+      columnPinning: initialState.columnPinning,
     },
-    defaultColumn: {
-      ...tableProps.defaultColumn,
-      enableColumnFilter: false,
-    },
+    manualPagination: true,
+    manualFiltering: true,
     enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
     onPaginationChange,
     onSortingChange: setSorting,
+    onRowSelectionChange: setRowSelection,
     onColumnFiltersChange,
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    getFacetedMinMaxValues: getFacetedMinMaxValues(),
-    manualPagination: true,
-    manualFiltering: true,
-    manualSorting: false,
   });
 
-  return {
-    table
-  };
+  return { table };
 }

@@ -55,9 +55,8 @@ export function TasksTable({ promises }: TasksTableProps) {
     pageCount,
     initialState: {
       columnPinning: { right: ['actions'] },
-      
     },
-    getRowId: row => row.id,
+    // getRowId: row => row.id,
   });
 
   return (
