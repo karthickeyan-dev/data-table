@@ -6,8 +6,8 @@ import type { DataTableRowAction } from '@/types/data-table';
 import { DataTable } from '@/components/data-table/data-table';
 import { useDataTable } from '@/hooks/use-data-table';
 
-import { DataTableSortList } from '@/components/data-table/data-table-sort-list';
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
+import { use, useState } from 'react';
 import type {
   getEstimatedHoursRange,
   getTaskPriorityCounts,
@@ -15,7 +15,6 @@ import type {
   getTasks,
 } from '../_lib/queries';
 import { getTasksTableColumns } from './tasks-table-columns';
-import { use, useState } from 'react';
 
 interface TasksTableProps {
   promises: Promise<
@@ -49,15 +48,16 @@ export function TasksTable({ promises }: TasksTableProps) {
     setRowAction,
   });
 
-  const { table } = useDataTable({
+  const { table, filterValues } = useDataTable({
     data,
     columns,
     pageCount,
     initialState: {
       columnPinning: { right: ['actions'] },
     },
-    // getRowId: row => row.id,
   });
+
+  console.log(filterValues);
 
   return (
     <DataTable table={table}>

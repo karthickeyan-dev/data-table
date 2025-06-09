@@ -220,5 +220,5 @@ export function useDataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
   });
 
-  return { table };
+  return { table, filterValues };
 }
